@@ -8,9 +8,7 @@ const Footer = () => {
         <div className='md:max-w-96'>
           <img className='w-36 h-auto' src={assets.logo} alt='logo' />
           <p className='mt-6 text-sm'>
-            Lorem Ipsum has been the industry's standard dummy text ever since
-            the 1500s, when an unknown printer took a galley of type and
-            scrambled it to make a type specimen book.
+            Your go-to place for movie magic. Book seats, skip queues, and catch every blockbuster—right from your screen. Because every great story deserves the perfect seat.
           </p>
           <div className='flex items-center gap-2 mt-4'>
             <img
@@ -23,7 +21,7 @@ const Footer = () => {
         </div>
         <div className='flex-1 flex items-start md:justify-end gap-20 md:gap-40'>
           <div>
-            <h2 className='font-semibold mb-5'>Company</h2>
+            <h2 className='font-semibold mb-5'>Quick Links</h2>
             <ul className='text-sm space-y-2'>
               <li>
                 <a href='#'>Home</a>
@@ -42,7 +40,7 @@ const Footer = () => {
           <div>
             <h2 className='font-semibold mb-5'>Get in touch</h2>
             <div className='text-sm space-y-2'>
-              <p>+1-234-567-890</p>
+              <p>+1-204-555-0100</p>
               <p>contact@grabyourseat.com</p>
             </div>
           </div>
