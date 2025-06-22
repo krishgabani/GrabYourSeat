@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { dummyDateTimeData, dummyShowsData } from '../assets/assets';
 import BlurCircle from '../components/BlurCircle';
 import { Heart, PlayCircleIcon, StarIcon } from 'lucide-react';
-import timeFormat from '../lib/timeFormat';
+import { timeFormat } from '../lib/dateTimeFormat';
 import DateSelect from '../components/DateSelect';
 import MovieCard from '../components/MovieCard';
 import Loading from '../components/Loading';
@@ -47,8 +47,8 @@ const MovieDetails = () => {
             {show.movie.overview}
           </p>
           <p>
-            {timeFormat(show.movie.runtime)} •
-            {show.movie.genres.map((genre) => genre.name).join(', ')} •
+            {timeFormat(show.movie.runtime)} • {' '}
+            {show.movie.genres.map((genre) => genre.name).join(', ')} • {' '}
             {show.movie.release_date.split('-')[0]}
           </p>
 

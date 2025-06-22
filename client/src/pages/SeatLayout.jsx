@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { dummyDateTimeData, dummyShowsData } from '../assets/assets';
 import Loading from '../components/Loading';
 import { ArrowRightIcon, ClockIcon } from 'lucide-react';
-import isoTimeFormat from '../lib/isoTimeFormat';
+import { isoTimeFormat } from '../lib/dateTimeFormat';
 import toast from 'react-hot-toast';
 import { assets } from '../assets/assets';
 import BlurCircle from '../components/BlurCircle';
