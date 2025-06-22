@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   ChartLineIcon,
   CircleDollarSign,
@@ -5,12 +6,11 @@ import {
   StarIcon,
   UsersIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { dummyDashboardData } from '../../assets/assets';
+import { dateFormat } from '../../lib/dateTimeFormat';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
 import BlurCircle from '../../components/BlurCircle';
-import { dateFormat } from '../../lib/dateTimeFormat';
 
 const Dashboard = () => {
   const currency = import.meta.env.VITE_CURRENCY;
@@ -56,7 +56,7 @@ const Dashboard = () => {
 
   return !loading ? (
     <>
-      <Title text1='Admin' text2='Dashboard' />
+      <Title text1='Admin' text2='Dashboard'  highlight={2}/>
       <div className='relative flex flex-wrap gap-4 mt-6'>
         <BlurCircle top='-100px' left='0' />
         <div className='flex flex-wrap gap-4 w-full'>

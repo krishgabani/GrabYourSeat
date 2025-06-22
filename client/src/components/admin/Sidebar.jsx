@@ -1,10 +1,10 @@
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboardIcon,
   ListCollapseIcon,
   ListIcon,
   PlusSquareIcon,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
 import { assets } from '../../assets/assets';
 
 const Sidebar = () => {
