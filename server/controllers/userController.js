@@ -1,6 +1,6 @@
 import { clerkClient } from '@clerk/express';
-import Booking from '../models/Booking';
-import Movie from '../models/Movie';
+import Booking from '../models/Booking.js';
+import Movie from '../models/Movie.js';
 
 // API to get user bookings
 export const getUserBookings = async (req, res) => {
