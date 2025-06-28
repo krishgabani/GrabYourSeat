@@ -10,9 +10,10 @@ const DateSelect = ({ dateTime, id }) => {
 
   const onBookHandler = () => {
     if (!selected) {
-      return toast('Please select toast');
+      return toast('Please select the date');
     }
     navigate(`/movies/${id}/${selected}`);
+    scrollTo(0, 0);
   };
   return (
     <div id='dateSelect' className='pt-30'>

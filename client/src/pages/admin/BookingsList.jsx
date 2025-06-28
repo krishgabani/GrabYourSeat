@@ -1,27 +1,44 @@
 import { useEffect, useState } from 'react';
-import { dummyBookingData } from '../../assets/assets';
 import { dateFormat } from '../../lib/dateTimeFormat';
 import Title from '../../components/admin/Title';
 import Loading from '../../components/Loading';
+import { useAppContext } from '../../context/AppContext';
 
 const BookingsList = () => {
   const currency = import.meta.env.VITE_CURRENCY;
+
+  const { axios, getToken, user } = useAppContext();
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const getAllBookings = async () => {
-    setBookings(dummyBookingData);
-    setLoading(false);
+    try {
+      const { data } = await axios.get('/api/admin/all-bookings', {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+      if (data.success) {
+        setBookings(data.bookings);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log('Error while fetching bookings data: ' + error);
+      toast.error('Failed to load bookings. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    getAllBookings();
-  }, []);
+    if (user) {
+      getAllBookings();
+    }
+  }, [user]);
 
   return !loading ? (
     <>
-      <Title text1='Bookings' text2='List' highlight={1}/>
+      <Title text1='Bookings' text2='List' highlight={1} />
       <div className='max-w-4xl mt-6 overflow-x-auto'>
         <table className='w-full border-collapse rounded-md overflow-hidden text-nowrap'>
           <thead>
@@ -43,7 +60,9 @@ const BookingsList = () => {
                 <td className='p-2'>{item.show.movie.title}</td>
                 <td className='p-2'>{dateFormat(item.show.showDateTime)}</td>
                 <td className='p-2'>
-                  {Object.keys(item.bookedSeats).map(seat => item.bookedSeats[seat]).join(', ')}
+                  {Object.keys(item.bookedSeats)
+                    .map((seat) => item.bookedSeats[seat])
+                    .join(', ')}
                 </td>
                 <td className='p-2'>
                   {currency}

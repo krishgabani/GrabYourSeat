@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { dummyDateTimeData, dummyShowsData } from '../assets/assets';
-import Loading from '../components/Loading';
 import { ArrowRightIcon, ClockIcon } from 'lucide-react';
-import { isoTimeFormat } from '../lib/dateTimeFormat';
 import toast from 'react-hot-toast';
 import { assets } from '../assets/assets';
+import { isoTimeFormat } from '../lib/dateTimeFormat';
+import Loading from '../components/Loading';
 import BlurCircle from '../components/BlurCircle';
+import { useAppContext } from '../context/AppContext';
 
 const SeatLayout = () => {
   const groupRows = [
@@ -19,19 +19,22 @@ const SeatLayout = () => {
 
   const navigate = useNavigate();
 
-  const { id, date } = useParams();
+  const { axios, getToken, user } = useAppContext();
 
+  const { id, date } = useParams();
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [occupiedSeats, setoOccupiedSeats] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
   const [show, setShow] = useState(null);
 
   const getShow = async () => {
-    const show = dummyShowsData.find((show) => show._id === id);
-    if (show) {
-      setShow({
-        movie: show,
-        dateTime: dummyDateTimeData,
-      });
+    try {
+      const { data } = await axios.get(`/api/show/${id}`);
+      if (data.success) {
+        setShow(data);
+      }
+    } catch (error) {
+      console.log(error);
     }
   };
 
@@ -41,6 +44,9 @@ const SeatLayout = () => {
     }
     if (!selectedSeats.includes(seatId) && selectedSeats.length > 4) {
       return toast('You can only select 5 seats');
+    }
+    if (occupiedSeats.includes(seatId)) {
+      return toast('This seat is already booked');
     }
     setSelectedSeats((prev) =>
       prev.includes(seatId)
@@ -60,7 +66,7 @@ const SeatLayout = () => {
               onClick={() => handleSeatClick(seatId)}
               className={`h-8 w-8 rounded border border-primary/60 cursor-pointer ${
                 selectedSeats.includes(seatId) && 'bg-primary text-white'
-              }`}
+              } ${occupiedSeats.includes(seatId) && 'opacity-50'}`}
             >
               {seatId}
             </button>
@@ -70,9 +76,58 @@ const SeatLayout = () => {
     </div>
   );
 
+  const getOccupiedSeats = async () => {
+    try {
+      const { data } = await axios.get(
+        `/api/booking/seats/${selectedTime.showId}`
+      );
+      if (data.success) {
+        setoOccupiedSeats(data.occupiedSeats);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const bookTickets = async () => {
+    try {
+      if (!user) {
+        return toast.error('Please login to proceed');
+      }
+      if (!selectedTime || !selectedSeats.length) {
+        return toast.error('Please select time and seats');
+      }
+
+      const { data } = await axios.post(
+        '/api/booking/create',
+        {
+          showId: selectedTime.showId,
+          selectedSeats,
+        },
+        { headers: { Authorization: `Bearer ${await getToken()}` } }
+      );
+      if (data.success) {
+        toast.success(data.message);
+        navigate('/my-bookings');
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
     getShow();
   }, []);
+
+  useEffect(() => {
+    if (selectedTime) {
+      getOccupiedSeats();
+    }
+  }, [selectedTime]);
 
   return show ? (
     <div className='flex flex-col md:flex-row px-6 md:px-16 lg:px-40 py-30 md:pt-50'>
@@ -112,7 +167,7 @@ const SeatLayout = () => {
           </div>
         </div>
         <button
-          onClick={() => navigate('/my-bookings')}
+          onClick={bookTickets}
           className='flex items-center gap-1 mt-20 px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer active:scale-95'
         >
           Proceed to Checkout

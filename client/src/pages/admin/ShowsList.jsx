@@ -1,38 +1,44 @@
 import { useEffect, useState } from 'react';
-import { dummyShowsData } from '../../assets/assets';
 import { dateFormat } from '../../lib/dateTimeFormat';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
+import { useAppContext } from '../../context/AppContext';
 
 const ShowsList = () => {
   const currency = import.meta.env.VITE_CURRENCY;
+
+  const { axios, getToken, user } = useAppContext();
 
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const getAllShows = async () => {
-    setShows([
-      {
-        movie: dummyShowsData[0],
-        showDateTime: '2025-06-30T02:30:00.000Z',
-        showPrice: 59,
-        occupiedSeats: {
-          A1: 'user_1',
-          B1: 'user_2',
-          C1: 'user_3',
-        },
-      },
-    ]);
-    setLoading(false);
+    try {
+      const { data } = await axios.get('/api/admin/all-shows', {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+      if (data.success) {
+        setShows(data.shows);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log('Error while fetching shows: ' + error);
+      toast.error('Failed to load shows. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    getAllShows();
-  }, []);
+    if (user) {
+      getAllShows();
+    }
+  }, [user]);
 
   return !loading ? (
     <>
-      <Title text1='Shows' text2='List'  highlight={1}/>
+      <Title text1='Shows' text2='List' highlight={1} />
       <div className='max-w-4xl mt-6 overflow-x-auto'>
         <table className='w-full border-collapse rounded-md overflow-hidden text-nowrap'>
           <thead>
