@@ -77,15 +77,8 @@ export const addShow = async (req, res) => {
 // API to get all shows from the database
 export const getShows = async (req, res) => {
   try {
-    const shows = await Show.find({
-      showDateTime: { $gte: new Date() },
-    })
-      .populate('movie')
-      .sort({ showDateTime: 1 });
-
-    // filter unique shows
-    const uniqueShows = new Set(shows.map((show) => show.movie));
-    res.json({ success: true, shows: Array.from(uniqueShows) });
+    const shows = await getUniquePlayingShows();
+    res.json({ success: true, shows });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
@@ -118,5 +111,63 @@ export const getShow = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get trailers of all shows
+export const getTrailers = async (req, res) => {
+  try {
+    const shows = await getUniquePlayingShows();
+
+    // Fetch trailers from TMDB for each unique movie
+    const trailers = await Promise.all(
+      shows.map(async (movie) => {
+        try {
+          const { data } = await tmdbClient.get(`/movie/${movie._id}/videos`);
+
+          const youtubeTrailer = data.results.find(
+            (vid) => vid.site === 'YouTube' && vid.type === 'Trailer'
+          );
+
+          if (youtubeTrailer) {
+            return {
+              movieId: movie._id,
+              title: movie.title,
+              videoUrl: `https://www.youtube.com/watch?v=${youtubeTrailer.key}`,
+              image: `https://img.youtube.com/vi/${youtubeTrailer.key}/maxresdefault.jpg`,
+            };
+          } else {
+            return null; // Skip if no trailer
+          }
+        } catch (error) {
+          console.erroror(`Error fetching trailer for movie ${movie._id}:`, err.message);
+          return null;
+        }
+      })
+    );
+
+    // Filter out nulls
+    const filteredTrailers = trailers.filter(Boolean);
+    res.json({ success: true, trailers: filteredTrailers });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// Function to get Unique shows
+const getUniquePlayingShows = async () => {
+  try {
+    const shows = await Show.find({
+      showDateTime: { $gte: new Date() },
+    })
+      .populate('movie')
+      .sort({ showDateTime: 1 });
+
+    // filter unique shows
+    const uniqueShows = new Set(shows.map((show) => show.movie));
+    return Array.from(uniqueShows);
+  } catch (error) {
+    console.error(error);
   }
 };
