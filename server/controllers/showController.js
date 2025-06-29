@@ -140,7 +140,10 @@ export const getTrailers = async (req, res) => {
             return null; // Skip if no trailer
           }
         } catch (error) {
-          console.erroror(`Error fetching trailer for movie ${movie._id}:`, err.message);
+          console.error(
+            `Error fetching trailer for movie ${movie._id}:`,
+            error.message
+          );
           return null;
         }
       })
@@ -151,6 +154,33 @@ export const getTrailers = async (req, res) => {
     res.json({ success: true, trailers: filteredTrailers });
   } catch (error) {
     console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get trailer of movie
+export const getTrailer = async (req, res) => {
+  try {
+    const { movieId } = req.params;
+
+    const { data } = await tmdbClient.get(`/movie/${movieId}/videos`);
+
+    const youtubeTrailer = data.results.find(
+      (vid) => vid.site === 'YouTube' && vid.type === 'Trailer'
+    );
+
+    if (youtubeTrailer) {
+      const trailer = {
+        movieId: movieId,
+        videoUrl: `https://www.youtube.com/watch?v=${youtubeTrailer.key}`,
+        image: `https://img.youtube.com/vi/${youtubeTrailer.key}/maxresdefault.jpg`,
+      };
+      res.json({ success: true, trailer });
+    } else {
+      res.json({ success: false, message: 'Trailer not available.' });
+    }
+  } catch (error) {
+    console.error('Error fetching trailer: ', error.message);
     res.json({ success: false, message: error.message });
   }
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
+import { PlayCircleIcon } from 'lucide-react';
 import ReactPlayer from 'react-player';
 import BlurCircle from './BlurCircle';
-import { PlayCircleIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const TrailersSection = () => {
