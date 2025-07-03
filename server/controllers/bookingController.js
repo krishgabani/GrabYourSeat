@@ -1,6 +1,7 @@
 import stripe from 'stripe';
 import Booking from '../models/Booking.js';
 import Show from '../models/Show.js';
+import { inngest } from '../inngest/index.js';
 
 // Function to check availability of selected seats for a movie
 const checkSeatsAvailability = async (showId, selectedSeats) => {
@@ -84,7 +85,7 @@ export const createBooking = async (req, res) => {
       metadata: {
         bookingId: booking._id.toString(),
       },
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // Expires in 30 minutes      
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // Expires in 30 minutes
       billing_address_collection: 'required'
     });
 
@@ -92,6 +93,14 @@ export const createBooking = async (req, res) => {
     booking.paymentLink = session.url;
 
     await booking.save();
+
+    // Run Inngest Scheduler Function to check payment status after 10 minutes
+    await inngest.send({
+      name: 'app/checkpayment',
+      data: {
+        bookingId: booking._id.toString(),
+      },
+    });
 
     res.json({ success: true, url: session.url });
   } catch (error) {

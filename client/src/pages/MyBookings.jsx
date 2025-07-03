@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { timeFormat, dateFormat } from '../lib/dateTimeFormat';
 import Loading from '../components/Loading';
 import BlurCircle from '../components/BlurCircle';
@@ -70,9 +71,9 @@ const MyBookings = () => {
                 {item.amount}
               </p>
               {!item.isPaid && (
-                <button className='bg-primary px-4 py-1.5 mb-3 text-sm rounded-full font-medium cursor-pointer'>
+                <Link to={item.paymentLink} className='bg-primary px-4 py-1.5 mb-3 text-sm rounded-full font-medium cursor-pointer'>
                   Pay Now
-                </button>
+                </Link>
               )}
             </div>
             <div className='text-sm'>
