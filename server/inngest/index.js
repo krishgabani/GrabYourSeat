@@ -94,7 +94,7 @@ const sendBookingConfirmationEmail = inngest.createFunction(
 
     await sendEmail({
       to: booking.user.email,
-      subject: `Your Tickets for "${booking.show.movie.title}" are Confirmed!`,
+      subject: `🎉 Your Tickets for "${booking.show.movie.title}" are Confirmed!`,
       body: getBookingConfirmationHTML(booking),
     });
   }
@@ -144,7 +144,7 @@ const sendShowReminders = inngest.createFunction(
         reminderTasks.map((task) =>
           sendEmail({
             to: task.userEmail,
-            subject: `Reminder: Your Movie "${task.movieTitle} starts soon!"`,
+            subject: `⏰ It's almost time! "${task.movieTitle}" starts soon!"`,
             body: getReminderHTML(task),
           })
         )
@@ -174,7 +174,7 @@ const sendNewShowNotification = inngest.createFunction(
       users.map((user) =>
         sendEmail({
           to: user.email,
-          subject: `Reminder: Your Movie "${movieTitle} starts soon!"`,
+          subject: `🆕 Just Dropped: "${movieTitle}" is now showing!"`,
           body: getNewShowAddedHTML(user.name, movieTitle),
         })
       )
