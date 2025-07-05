@@ -5,6 +5,7 @@ import Show from '../models/Show.js';
 import User from '../models/User.js';
 import { getBookingConfirmationHTML } from '../lib/emailTemplates/bookingConfirmation.js';
 import { getReminderHTML } from '../lib/emailTemplates/reminder.js';
+import { getNewShowAddedHTML } from '../lib/emailTemplates/newShowAdded.js';
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: 'movie-ticket-booking' });
