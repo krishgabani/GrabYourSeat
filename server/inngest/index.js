@@ -3,6 +3,8 @@ import sendEmail from '../configs/nodemailer.js';
 import Booking from '../models/Booking.js';
 import Show from '../models/Show.js';
 import User from '../models/User.js';
+import { getBookingConfirmationHTML } from '../lib/emailTemplates/bookingConfirmation.js';
+import { getReminderHTML } from '../lib/emailTemplates/reminder.js';
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: 'movie-ticket-booking' });
@@ -92,34 +94,94 @@ const sendBookingConfirmationEmail = inngest.createFunction(
     await sendEmail({
       to: booking.user.email,
       subject: `Your Tickets for "${booking.show.movie.title}" are Confirmed!`,
-      body: `<div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: auto; background-color: #f9f9f9; padding: 24px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                <h2 style="color: #333;">Hi ${booking.user.name},</h2>
-                
-                <p style="font-size: 16px; color: #555;">
-                  Your booking for <strong style="color: #F84565;">${booking.show.movie.title}</strong> is confirmed!
-                </p>
-
-                <div style="margin: 20px 0; padding: 16px; background-color: #fff; border: 1px solid #ddd; border-radius: 6px;">
-                  <p style="margin: 0; font-size: 15px; color: #333;">
-                    <strong>Date:</strong> ${new Date(booking.show.showDateTime).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata' })}
-                  </p>
-                  <p style="margin: 4px 0 0; font-size: 15px; color: #333;">
-                    <strong>Time:</strong> ${new Date(booking.show.showDateTime).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' })}
-                  </p>
-                  <p style="margin: 12px 0 0; font-size: 15px; color: #333;">
-                    <strong>Seats:</strong> ${booking.bookedSeats.join(', ')}
-                  </p>
-                </div>
-
-                <p style="font-size: 16px; color: #555;">Enjoy the show! 🍿</p>
-
-                <p style="font-size: 15px; color: #777;">
-                  Thanks for booking with us!<br />
-                  — <strong style="color: #F84565;">GrabYourSeat</strong> Team
-                </p>
-              </div>
-              `,
+      body: getBookingConfirmationHTML(booking),
     });
+  }
+);
+
+// Inngest Function to reminders
+const sendShowReminders = inngest.createFunction(
+  { id: 'send-show-reminders' },
+  { cron: '0 */8 * * *' }, // Every 8 hours
+  async ({ step }) => {
+    const now = new Date();
+    const in8Hours = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const windowStart = new Date(in8Hours.getTime() - 10 * 60 * 1000);
+
+    // Prepare reminder tasks
+    const reminderTasks = await step.run('prepare-reminder-tasks', async () => {
+      const shows = await Show.find({
+        showTime: { $gte: windowStart, $lte: in8Hours },
+      }).populate('movie');
+      const tasks = [];
+      for (const show of shows) {
+        if (!show.movie || !show.occupiedSeats) continue;
+        const userIds = [...new Set(Object.values(show.occupiedSeats))];
+        if (userIds.length === 0) continue;
+
+        const users = await User.find({ _id: { $in: userIds } }).select(
+          'name email'
+        );
+        for (const user of users) {
+          tasks.push({
+            userEmail: user.email,
+            userName: user.name,
+            movieTitle: show.movie.title,
+            showTime: show.showTime,
+          });
+        }
+      }
+      return tasks;
+    });
+    if (reminderTasks.length === 0) {
+      return { sent: 0, message: 'No Reminder to send.' };
+    }
+
+    // Send Reminder Emails
+    const results = await step.run('send-all-reminders', async () => {
+      return await Promise.allSettled(
+        reminderTasks.map((task) =>
+          sendEmail({
+            to: task.userEmail,
+            subject: `Reminder: Your Movie "${task.movieTitle} starts soon!"`,
+            body: getReminderHTML(task),
+          })
+        )
+      );
+    });
+
+    const sent = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - sent;
+
+    return {
+      sent,
+      failed,
+      message: `Sent ${sent} reminder(s), ${failed} failed.`,
+    };
+  }
+);
+
+// Inngest Function to send notifications when a new show is added
+const sendNewShowNotification = inngest.createFunction(
+  { id: 'send-new-show-notifications' },
+  { event: 'app/show.added' },
+  async ({ event }) => {
+    const { movieTitle } = event.data;
+
+    const users = await User.find({}).select('name email');
+    await Promise.allSettled(
+      users.map((user) =>
+        sendEmail({
+          to: user.email,
+          subject: `Reminder: Your Movie "${movieTitle} starts soon!"`,
+          body: getNewShowAddedHTML(user.name, movieTitle),
+        })
+      )
+    );
+
+    return {
+      message: 'Notifications sent.',
+    };
   }
 );
 
@@ -130,4 +192,6 @@ export const functions = [
   syncUserUpdation,
   releaseSeatsAndDeleteBooking,
   sendBookingConfirmationEmail,
+  sendShowReminders,
+  sendNewShowNotification,
 ];
