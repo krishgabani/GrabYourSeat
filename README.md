@@ -28,11 +28,11 @@ This repository contains the client (frontend) and server (backend) of the GrabY
 ```bash
 root/
 ├── client/    # Vite + React frontend
-└── server/    # Express backend + Stripe, Inngest, MongoDB, etc.
+└── server/    # Express backend + Stripe, Inngest, Postgres, Prisma etc.
 ```
 ## ✅ Prerequisites
 
-- MongoDB Atlas Cluster
+- Postgres Database (e.g. Supabase)
 - Stripe Account
 - Clerk Project
 - Inngest Account
@@ -42,7 +42,6 @@ root/
 ## 📦 Setup Instructions
 
 ### 🖥️ To Run Client
-
 ```bash
 cd client
 npm install
@@ -54,6 +53,11 @@ cd server
 npm install
 npm run server
 ```
+### 🗄️ To push schema to DB
+```bash
+npx prisma migrate dev
+```
+
 ### 🛠️ Environment Variables
 📁 client/.env
 ```bash
@@ -64,7 +68,8 @@ VITE_TMDB_IMAGE_BASE_URL = https://image.tmdb.org/t/p/original
 ```
 📁 server/.env
 ```bash
-MONGODB_URI = your-mongodb-uri
+DATABASE_URL = transaction-pooler-URL (port 6543)
+DIRECT_URL = session-pooler-URL (port 5432) AND append ?pgbouncer=true
 
 CLERK_PUBLISHABLE_KEY = your-clerk-pub-key
 CLERK_SECRET_KEY = your-clerk-secret-key
@@ -95,7 +100,7 @@ node_modules/
 
 - 🔗 [Clerk (Authentication)](https://dashboard.clerk.com)
 - 🔗 [TMDB (Movie Data & Images)](https://themoviedb.org/settings/api)
-- 🔗 [MongoDB (Database)](https://mongodb.com/cloud/atlas)
+- 🔗 [Supabase (Database)](https://supabase.com/)
 - 🔗 [Stripe (Payments)](https://dashboard.stripe.com)
 - 🔗 [Brevo (SMTP for Emails)](https://app.brevo.com)
 - 🔗 [Inngest (Background Jobs & Workflows)](https://app.inngest.com)
