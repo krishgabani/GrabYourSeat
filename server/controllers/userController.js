@@ -1,17 +1,21 @@
 import { clerkClient } from '@clerk/express';
-import Booking from '../models/Booking.js';
-import Movie from '../models/Movie.js';
+import prisma from '../configs/db.js';
 
 // API to get user bookings
 export const getUserBookings = async (req, res) => {
   try {
-    const userId = req.auth().userId;    
-    const bookings = await Booking.find({ user: userId })
-      .populate({
-        path: 'show',
-        populate: { path: 'movie' },
-      })
-      .sort({ createdAt: -1 });
+    const userId = req.auth().userId;
+    const bookings = await prisma.booking.findMany({
+      where: { userId },
+      include: {
+        show: {
+          include: {
+            movie: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     res.json({ success: true, bookings });
   } catch (error) {
@@ -59,7 +63,11 @@ export const getFavorites = async (req, res) => {
 
     const favorites = user.privateMetadata.favorites;
 
-    const movies = await Movie.find({ _id: { $in: favorites } });
+    const movies = await prisma.movie.findMany({
+      where: {
+        id: { in: favorites },
+      },
+    });
 
     res.json({ success: true, movies });
   } catch (error) {

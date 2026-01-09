@@ -1,8 +1,6 @@
 import { Inngest } from 'inngest';
 import sendEmail from '../configs/nodemailer.js';
-import Booking from '../models/Booking.js';
-import Show from '../models/Show.js';
-import User from '../models/User.js';
+import prisma from '../configs/db.js';
 import { getBookingConfirmationHTML } from '../lib/emailTemplates/bookingConfirmation.js';
 import { getReminderHTML } from '../lib/emailTemplates/reminder.js';
 import { getNewShowAddedHTML } from '../lib/emailTemplates/newShowAdded.js';
@@ -18,12 +16,12 @@ const syncUserCreation = inngest.createFunction(
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
     const userData = {
-      _id: id,
+      id: id,
       email: email_addresses[0].email_address,
       name: first_name + ' ' + last_name,
       image: image_url,
     };
-    await User.create(userData);
+    await prisma.user.create({ data: userData });
   }
 );
 
@@ -33,7 +31,7 @@ const syncUserDeletion = inngest.createFunction(
   { event: 'clerk/user.deleted' },
   async ({ event }) => {
     const { id } = event.data;
-    await User.findByIdAndDelete(id);
+    await prisma.user.delete({ where: { id } });
   }
 );
 
@@ -45,12 +43,14 @@ const syncUserUpdation = inngest.createFunction(
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
     const userData = {
-      _id: id,
-      email_addresses: email_addresses[0].email_address,
+      email: email_addresses[0].email_address,
       name: first_name + ' ' + last_name,
-      image_url: image_url,
+      image: image_url,
     };
-    await User.findByIdAndUpdate(id, userData);
+    await prisma.user.update({
+      where: { id },
+      data: userData,
+    });
   }
 );
 
@@ -62,18 +62,28 @@ const releaseSeatsAndDeleteBooking = inngest.createFunction(
     const tenMinutesLater = new Date(Date.now() + 10 * 60 * 1000);
     await step.sleepUntil('wait-for-10-minutes', tenMinutesLater);
     await step.run('check-payment-status', async () => {
-      const bookingId = event.data.bookingId;
-      const booking = await Booking.findById(bookingId);
+      const bookingId = parseInt(event.data.bookingId);
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+      });
 
       // If payment is not made, release seats and delete booking
       if (!booking.isPaid) {
-        const show = await Show.findById(booking.show);
-        booking.bookedSeats.forEach((seat) => {
-          delete show.occupiedSeats[seat];
+        const show = await prisma.show.findUnique({
+          where: { id: booking.showId },
         });
-        show.markModified('occupiedSeats');
-        await show.save();
-        await Booking.findByIdAndDelete(booking._id);
+
+        const updatedOccupiedSeats = { ...show.occupiedSeats };
+        booking.bookedSeats.forEach((seat) => {
+          delete updatedOccupiedSeats[seat];
+        });
+
+        await prisma.show.update({
+          where: { id: booking.showId },
+          data: { occupiedSeats: updatedOccupiedSeats },
+        });
+
+        await prisma.booking.delete({ where: { id: booking.id } });
       }
     });
   }
@@ -85,12 +95,15 @@ const sendBookingConfirmationEmail = inngest.createFunction(
   { event: 'app/show.booked' },
   async ({ event }) => {
     const { bookingId } = event.data;
-    const booking = await Booking.findById(bookingId)
-      .populate({
-        path: 'show',
-        populate: { path: 'movie', model: 'Movie' },
-      })
-      .populate('user');
+    const booking = await prisma.booking.findUnique({
+      where: { id: parseInt(bookingId) },
+      include: {
+        show: {
+          include: { movie: true },
+        },
+        user: true,
+      },
+    });
 
     await sendEmail({
       to: booking.user.email,
@@ -111,24 +124,28 @@ const sendShowReminders = inngest.createFunction(
 
     // Prepare reminder tasks
     const reminderTasks = await step.run('prepare-reminder-tasks', async () => {
-      const shows = await Show.find({
-        showTime: { $gte: windowStart, $lte: in8Hours },
-      }).populate('movie');
+      const shows = await prisma.show.findMany({
+        where: {
+          showDateTime: { gte: windowStart, lte: in8Hours },
+        },
+        include: { movie: true },
+      });
       const tasks = [];
       for (const show of shows) {
         if (!show.movie || !show.occupiedSeats) continue;
         const userIds = [...new Set(Object.values(show.occupiedSeats))];
         if (userIds.length === 0) continue;
 
-        const users = await User.find({ _id: { $in: userIds } }).select(
-          'name email'
-        );
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { name: true, email: true },
+        });
         for (const user of users) {
           tasks.push({
             userEmail: user.email,
             userName: user.name,
             movieTitle: show.movie.title,
-            showTime: show.showTime,
+            showTime: show.showDateTime,
           });
         }
       }
@@ -169,7 +186,9 @@ const sendNewShowNotification = inngest.createFunction(
   async ({ event }) => {
     const { movieTitle } = event.data;
 
-    const users = await User.find({}).select('name email');
+    const users = await prisma.user.findMany({
+      select: { name: true, email: true },
+    });
     await Promise.allSettled(
       users.map((user) =>
         sendEmail({

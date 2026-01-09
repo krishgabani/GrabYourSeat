@@ -49,7 +49,7 @@ const MyBookings = () => {
         >
           <div className='flex flex-col md:flex-row'>
             <img
-              src={image_base_url + item.show.movie.poster_path}
+              src={image_base_url + item.show.movie.posterPath}
               alt=''
               className='md:max-w-45 aspect-video h-auto object-cover object-bottom rounded'
             />

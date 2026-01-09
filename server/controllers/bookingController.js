@@ -1,12 +1,14 @@
 import stripe from 'stripe';
-import Booking from '../models/Booking.js';
-import Show from '../models/Show.js';
+import prisma from '../configs/db.js';
 import { inngest } from '../inngest/index.js';
+import { clerkClient } from '@clerk/express';
 
 // Function to check availability of selected seats for a movie
 const checkSeatsAvailability = async (showId, selectedSeats) => {
   try {
-    const showData = await Show.findById(showId);
+    const showData = await prisma.show.findUnique({
+      where: { id: showId },
+    });
     if (!showData) return false;
 
     const occupiedSeats = showData.occupiedSeats;
@@ -38,26 +40,57 @@ export const createBooking = async (req, res) => {
     }
 
     // Get the show details
-    const showData = await Show.findById(showId).populate('movie');
+    const showData = await prisma.show.findUnique({
+      where: { id: showId },
+      include: { movie: true },
+    });
+
+    // Ensure user exists in database (in case Clerk webhook hasn't synced yet)
+    let existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!existingUser) {
+      // User doesn't exist yet, fetch from Clerk and create
+      try {
+        const clerkUser = await clerkClient.users.getUser(userId);
+        existingUser = await prisma.user.create({
+          data: {
+            id: userId,
+            name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'User',
+            email: clerkUser.emailAddresses[0]?.emailAddress || 'no-email@example.com',
+            image: clerkUser.imageUrl || '',
+          },
+        });
+      } catch (error) {
+        console.error('Error fetching user from Clerk:', error);
+        return res.json({
+          success: false,
+          message: 'Unable to verify user. Please try again.',
+        });
+      }
+    }
 
     // Create booking
-    const booking = await Booking.create({
-      user: userId,
-      show: showId,
-      amount: showData.showPrice * selectedSeats.length,
-      bookedSeats: selectedSeats,
+    const booking = await prisma.booking.create({
+      data: {
+        userId,
+        showId,
+        amount: showData.showPrice * selectedSeats.length,
+        bookedSeats: selectedSeats,
+      },
     });
 
     // reserve the seats for this user
-    selectedSeats.map((seat) => {
-      showData.occupiedSeats[seat] = userId;
+    const updatedOccupiedSeats = { ...showData.occupiedSeats };
+    selectedSeats.forEach((seat) => {
+      updatedOccupiedSeats[seat] = userId;
     });
 
-    // Mongoose might not detect deep changes inside objects unless we replace the whole object.
-    // To force Mongoose to mark the occupiedSeats field as modified so it gets saved correctly when we call showData.save()
-    showData.markModified('occupiedSeats');
-
-    await showData.save();
+    await prisma.show.update({
+      where: { id: showId },
+      data: { occupiedSeats: updatedOccupiedSeats },
+    });
 
     // Stripe
     const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
@@ -83,22 +116,23 @@ export const createBooking = async (req, res) => {
       line_items: line_items,
       mode: 'payment',
       metadata: {
-        bookingId: booking._id.toString(),
+        bookingId: booking.id.toString(),
       },
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // Expires in 30 minutes
-      billing_address_collection: 'required'
+      billing_address_collection: 'required',
     });
 
     // store paymentlink in database to pay later, incase of failure
-    booking.paymentLink = session.url;
-
-    await booking.save();
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { paymentLink: session.url },
+    });
 
     // Run Inngest Scheduler Function to check payment status after 10 minutes
     await inngest.send({
       name: 'app/checkpayment',
       data: {
-        bookingId: booking._id.toString(),
+        bookingId: booking.id.toString(),
       },
     });
 
@@ -114,7 +148,9 @@ export const getOccupiedSeats = async (req, res) => {
   try {
     const { showId } = req.params;
 
-    const showData = await Show.findById(showId);
+    const showData = await prisma.show.findUnique({
+      where: { id: parseInt(showId) },
+    });
 
     const occupiedSeats = Object.keys(showData.occupiedSeats);
 

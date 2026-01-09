@@ -1,12 +1,15 @@
-import mongoose from 'mongoose';
-const connectDB = async () => {
-  try {
-    mongoose.connection.on('connected', () =>
-      console.log('Database connected')
-    );
-    await mongoose.connect(`${process.env.MONGODB_URI}/grabyourseat`);
-  } catch (error) {
-    console.log(error.message);
-  }
-};
-export default connectDB;
+import { PrismaClient } from '@prisma/client';
+
+// PrismaClient is attached to the `global` object in development to prevent
+// exhausting your database connection limit.
+// Learn more: https://pris.ly/d/help/next-js-best-practices
+
+const globalForPrisma = global;
+
+const prisma = globalForPrisma.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;

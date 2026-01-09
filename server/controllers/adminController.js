@@ -1,6 +1,4 @@
-import Booking from '../models/Booking.js';
-import Show from '../models/Show.js';
-import User from '../models/User.js';
+import prisma from '../configs/db.js';
 
 // API to check if user is admin
 export const isAdmin = async (req, res) => {
@@ -10,12 +8,15 @@ export const isAdmin = async (req, res) => {
 // API to get dashboard data
 export const getDashboardData = async (req, res) => {
   try {
-    const bookings = await Booking.find({ isPaid: true });
-    const activeShows = await Show
-      .find({ showDateTime: { $gte: new Date() } })
-      .populate('movie');
+    const bookings = await prisma.booking.findMany({
+      where: { isPaid: true },
+    });
+    const activeShows = await prisma.show.findMany({
+      where: { showDateTime: { gte: new Date() } },
+      include: { movie: true },
+    });
 
-    const totalUser = await User.countDocuments();
+    const totalUser = await prisma.user.count();
 
     const dashboardData = {
       totalBookings: bookings.length,
@@ -34,10 +35,39 @@ export const getDashboardData = async (req, res) => {
 // API to get all shows
 export const getAllShows = async (req, res) => {
   try {
-    const shows = await Show.find({ showDateTime: { $gte: new Date() } })
-      .populate('movie')
-      .sort({ showDateTime: 1 });
-    res.json({ success: true, shows });
+    const shows = await prisma.show.findMany({
+      where: { showDateTime: { gte: new Date() } },
+      include: {
+        movie: true,
+        bookings: {
+          where: { isPaid: true },
+        },
+      },
+      orderBy: { showDateTime: 'asc' },
+    });
+
+    // Calculate occupied seats based strictly on PAID bookings
+    const showsWithPaidStats = shows.map((show) => {
+      const paidOccupiedSeats = {};
+
+      show.bookings.forEach((booking) => {
+        if (Array.isArray(booking.bookedSeats)) {
+          booking.bookedSeats.forEach((seat) => {
+            paidOccupiedSeats[seat] = booking.userId;
+          });
+        }
+      });
+
+      // Remove the bookings array from response to keep it clean
+      // and override occupiedSeats with only paid seats
+      const { bookings, ...showData } = show;
+      return {
+        ...showData,
+        occupiedSeats: paidOccupiedSeats,
+      };
+    });
+
+    res.json({ success: true, shows: showsWithPaidStats });
   } catch (error) {
     console.error(error);
     res.json({ success: false, message: error.message });
@@ -47,13 +77,16 @@ export const getAllShows = async (req, res) => {
 // API to get all bookings
 export const getAllbookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({})
-      .populate('user')
-      .populate({
-        path: 'show',
-        populate: { path: 'movie' },
-      })
-      .sort({ createdAt: -1 });
+    const bookings = await prisma.booking.findMany({
+      where: { isPaid: true },
+      include: {
+        user: true,
+        show: {
+          include: { movie: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     res.json({ success: true, bookings });
   } catch (error) {

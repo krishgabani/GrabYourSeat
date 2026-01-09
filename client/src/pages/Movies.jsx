@@ -3,7 +3,7 @@ import BlurCircle from '../components/BlurCircle';
 import { useAppContext } from '../context/AppContext';
 
 const Movies = () => {
-  const { shows } = useAppContext(); 
+  const { shows } = useAppContext();
 
   return shows.length > 0 ? (
     <div className='relative my-40 mb-60 px-6 md:px-16 1g:px-40 x1:px-44 overflow-hidden min-h-[80vh]'>
@@ -12,7 +12,7 @@ const Movies = () => {
       <h1 className='text-lg font-medium my-4'>Now Showing</h1>
       <div className='flex flex-wrap max-sm:justify-center gap-8'>
         {shows.map((movie) => (
-          <MovieCard movie={movie} key={movie._id} />
+          <MovieCard movie={movie} key={movie.id} />
         ))}
       </div>
     </div>

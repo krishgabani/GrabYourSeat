@@ -1,0 +1,71 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String    @id // Clerk user ID
+  name     String
+  email    String    @unique
+  image    String
+  bookings Booking[]
+
+  @@map("users")
+}
+
+model Movie {
+  id                String   @id // TMDB movie ID
+  title             String
+  overview          String   @db.Text
+  posterPath        String   @map("poster_path")
+  backdropPath      String   @map("backdrop_path")
+  releaseDate       String   @map("release_date")
+  originalLanguage  String?  @map("original_language")
+  tagline           String?
+  genres            Json     // Array of genre objects
+  casts             Json     // Array of cast objects
+  voteAverage       Float    @map("vote_average")
+  runtime           Int
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  shows             Show[]
+
+  @@map("movies")
+}
+
+model Show {
+  id            Int      @id @default(autoincrement())
+  movieId       String   @map("movie_id")
+  movie         Movie    @relation(fields: [movieId], references: [id])
+  showDateTime  DateTime @map("show_date_time")
+  showPrice     Float    @map("show_price")
+  occupiedSeats Json     @default("{}") @map("occupied_seats") // Object with seat numbers as keys and user IDs as values
+  bookings      Booking[]
+
+  @@index([movieId])
+  @@index([showDateTime])
+  @@map("shows")
+}
+
+model Booking {
+  id          Int      @id @default(autoincrement())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id])
+  showId      Int      @map("show_id")
+  show        Show     @relation(fields: [showId], references: [id])
+  amount      Float
+  bookedSeats Json     @map("booked_seats") // Array of seat numbers
+  isPaid      Boolean  @default(false) @map("is_paid")
+  paymentLink String?  @map("payment_link")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([showId])
+  @@map("bookings")
+}
