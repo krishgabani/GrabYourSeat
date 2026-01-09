@@ -1,6 +1,5 @@
 import axios from 'axios';
-import Movie from '../models/Movie.js';
-import Show from '../models/Show.js';
+import prisma from '../configs/db.js';
 import tmdbClient from '../lib/tmdbClient.js';
 import { inngest } from '../inngest/index.js';
 
@@ -20,7 +19,12 @@ export const addShow = async (req, res) => {
   try {
     const { movieId, showsInput, showPrice } = req.body;
 
-    let movie = await Movie.findById(movieId);
+    // Convert movieId to string to match Prisma schema
+    const movieIdStr = String(movieId);
+
+    let movie = await prisma.movie.findUnique({
+      where: { id: movieIdStr },
+    });
 
     if (!movie) {
       // Fetch movie details and credits from TMDB API
@@ -34,22 +38,24 @@ export const addShow = async (req, res) => {
 
       // Extract meaningfull data
       const movieDetails = {
-        _id: movieId,
+        id: movieIdStr,
         title: movieApiData.title,
         overview: movieApiData.overview,
-        poster_path: movieApiData.poster_path,
-        backdrop_path: movieApiData.backdrop_path,
+        posterPath: movieApiData.poster_path,
+        backdropPath: movieApiData.backdrop_path,
         genres: movieApiData.genres,
         casts: movieCreditsData.cast,
-        release_date: movieApiData.release_date,
-        original_language: movieApiData.original_language,
+        releaseDate: movieApiData.release_date,
+        originalLanguage: movieApiData.original_language,
         tagline: movieApiData.tagline || '',
-        vote_average: movieApiData.vote_average,
+        voteAverage: movieApiData.vote_average,
         runtime: movieApiData.runtime,
       };
 
       // Add movie to the database
-      movie = await Movie.create(movieDetails);
+      movie = await prisma.movie.create({
+        data: movieDetails,
+      });
     }
     const showsToCreate = [];
     showsInput.forEach((show) => {
@@ -57,7 +63,7 @@ export const addShow = async (req, res) => {
       show.time.forEach((time) => {
         const dateTimeString = `${showDate}T${time}`;
         showsToCreate.push({
-          movie: movieId,
+          movieId: movieIdStr,
           showDateTime: new Date(dateTimeString),
           showPrice: showPrice,
           occupiedSeats: {},
@@ -66,7 +72,9 @@ export const addShow = async (req, res) => {
     });
 
     if (showsToCreate.length > 0) {
-      await Show.insertMany(showsToCreate);
+      await prisma.show.createMany({
+        data: showsToCreate,
+      });
     }
 
     // Trigger inngest event to send notifications
@@ -101,12 +109,16 @@ export const getShow = async (req, res) => {
     const { movieId } = req.params;
 
     // get all upcoming shows for the movie
-    const shows = await Show.find({
-      movie: movieId,
-      showDateTime: { $gte: new Date() },
+    const shows = await prisma.show.findMany({
+      where: {
+        movieId: movieId,
+        showDateTime: { gte: new Date() },
+      },
     });
 
-    const movie = await Movie.findById(movieId);
+    const movie = await prisma.movie.findUnique({
+      where: { id: movieId },
+    });
     const dateTime = {};
 
     shows.forEach((show) => {
@@ -114,7 +126,7 @@ export const getShow = async (req, res) => {
       if (!dateTime[date]) {
         dateTime[date] = [];
       }
-      dateTime[date].push({ time: show.showDateTime, showId: show._id });
+      dateTime[date].push({ time: show.showDateTime, showId: show.id });
     });
 
     res.json({ success: true, movie, dateTime });
@@ -133,7 +145,7 @@ export const getTrailers = async (req, res) => {
     const trailers = await Promise.all(
       shows.map(async (movie) => {
         try {
-          const { data } = await tmdbClient.get(`/movie/${movie._id}/videos`);
+          const { data } = await tmdbClient.get(`/movie/${movie.id}/videos`);
 
           const youtubeTrailer = data.results.find(
             (vid) => vid.site === 'YouTube' && vid.type === 'Trailer'
@@ -141,7 +153,7 @@ export const getTrailers = async (req, res) => {
 
           if (youtubeTrailer) {
             return {
-              movieId: movie._id,
+              movieId: movie.id,
               title: movie.title,
               videoUrl: `https://www.youtube.com/watch?v=${youtubeTrailer.key}`,
               image: `https://img.youtube.com/vi/${youtubeTrailer.key}/maxresdefault.jpg`,
@@ -151,7 +163,7 @@ export const getTrailers = async (req, res) => {
           }
         } catch (error) {
           console.error(
-            `Error fetching trailer for movie ${movie._id}:`,
+            `Error fetching trailer for movie ${movie.id}:`,
             error.message
           );
           return null;
@@ -198,15 +210,22 @@ export const getTrailer = async (req, res) => {
 // Function to get Unique shows
 const getUniquePlayingShows = async () => {
   try {
-    const shows = await Show.find({
-      showDateTime: { $gte: new Date() },
-    })
-      .populate('movie')
-      .sort({ showDateTime: 1 });
+    const shows = await prisma.show.findMany({
+      where: {
+        showDateTime: { gte: new Date() },
+      },
+      include: { movie: true },
+      orderBy: { showDateTime: 'asc' },
+    });
 
     // filter unique shows
-    const uniqueShows = new Set(shows.map((show) => show.movie));
-    return Array.from(uniqueShows);
+    const uniqueMovies = new Map();
+    shows.forEach((show) => {
+      if (!uniqueMovies.has(show.movie.id)) {
+        uniqueMovies.set(show.movie.id, show.movie);
+      }
+    });
+    return Array.from(uniqueMovies.values());
   } catch (error) {
     console.error(error);
   }

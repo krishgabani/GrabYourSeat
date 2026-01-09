@@ -100,7 +100,7 @@ const MovieDetails = () => {
       <div className='px-6 md:px-16 lg:px-40 pt-30 md:pt-50'>
         <div className='flex flex-col md:flex-row gap-8 max-w-6x1 mx-auto'>
           <img
-            src={image_base_url + show.movie.poster_path}
+            src={image_base_url + show.movie.posterPath}
             alt=''
             className='max-md:mx-auto rounded-x1 h-104 max-w-70 object-cover'
           />
@@ -112,7 +112,7 @@ const MovieDetails = () => {
             </h1>
             <div className='flex items-center gap-2 text-gray-300'>
               <StarIcon className='w-5 h-5 text-primary fill-primary' />
-              {show.movie.vote_average.toFixed(1)} User Rating
+              {show.movie.voteAverage.toFixed(1)} User Rating
             </div>
             <p className='text-gray-400 mt-2 text-sm leading-tight max-w-x1'>
               {show.movie.overview}
@@ -120,7 +120,7 @@ const MovieDetails = () => {
             <p>
               {timeFormat(show.movie.runtime)} •{' '}
               {show.movie.genres.map((genre) => genre.name).join(', ')} •{' '}
-              {show.movie.release_date.split('-')[0]}
+              {show.movie.releaseDate.split('-')[0]}
             </p>
 
             <div className='flex items-center flex-wrap gap-4 mt-4'>
@@ -142,11 +142,10 @@ const MovieDetails = () => {
                 className='bg-gray-700 p-2.5 rounded-full transition cursor-pointer active:scale-95'
               >
                 <Heart
-                  className={`w-5 h-5 ${
-                    favoriteMovies.find((movie) => movie._id === id)
-                      ? 'fill-primary text-primary'
-                      : ''
-                  }`}
+                  className={`w-5 h-5 ${favoriteMovies.find((movie) => movie.id === id)
+                    ? 'fill-primary text-primary'
+                    : ''
+                    }`}
                 />
               </button>
             </div>
@@ -177,7 +176,7 @@ const MovieDetails = () => {
             .slice(0, 4)
             .map(
               (movie, index) =>
-                movie._id !== show.movie._id && (
+                movie.id !== show.movie.id && (
                   <MovieCard key={index} movie={movie} />
                 )
             )}

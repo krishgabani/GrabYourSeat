@@ -1,5 +1,5 @@
 import stripe from 'stripe';
-import Booking from '../models/Booking.js';
+import prisma from '../configs/db.js';
 import { inngest } from '../inngest/index.js';
 
 export const stripeWebhooks = async (req, res) => {
@@ -15,22 +15,29 @@ export const stripeWebhooks = async (req, res) => {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (error) {
+    console.error('Webhook signature verification failed:', error.message);
     return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 
+  console.log('Received webhook event:', event.type);
+
   try {
     switch (event.type) {
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object;
-        const sessionList = await stripeInstance.checkout.sessions.list({
-          payment_intent: paymentIntent.id,
-        });
-        const session = sessionList.data[0];
+      case 'checkout.session.completed': {
+        const session = event.data.object;
         const { bookingId } = session.metadata;
-        await Booking.findByIdAndUpdate(bookingId, {
-          isPaid: true,
-          paymentLink: '',
+
+        console.log('Processing payment for booking:', bookingId);
+
+        await prisma.booking.update({
+          where: { id: parseInt(bookingId) },
+          data: {
+            isPaid: true,
+            paymentLink: '',
+          },
         });
+
+        console.log('Booking marked as paid:', bookingId);
 
         // Send Confirmation Email
         await inngest.send({
@@ -42,11 +49,12 @@ export const stripeWebhooks = async (req, res) => {
       }
 
       default:
-        console.log('Unhandled event type: ', event.type);
+        console.log('Unhandled event type:', event.type);
     }
     res.json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error: ', error);
+    console.error('Webhook processing error:', error);
+    console.error('Error details:', error.message);
     res.status(500).send('Internal Server Error');
   }
 };

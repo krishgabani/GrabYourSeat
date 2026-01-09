@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "server": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:deploy": "prisma migrate deploy",
+    "inngest:dev": "npx inngest-cli@latest dev -u http://127.0.0.1:3000/api/inngest",
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
@@ -13,18 +19,19 @@
   "description": "",
   "dependencies": {
     "@clerk/express": "^1.7.0",
+    "@prisma/client": "^6.2.0",
     "axios": "^1.10.0",
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "inngest": "^3.39.2",
-    "mongoose": "^8.16.0",
     "nodemailer": "^7.0.4",
     "stripe": "^18.2.1",
     "svix": "^1.68.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "prisma": "^6.2.0"
   }
 }

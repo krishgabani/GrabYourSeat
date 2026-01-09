@@ -98,11 +98,11 @@ const Dashboard = () => {
         <BlurCircle top='100px' left='-10%' />
         {dashboardData.activeShows.map((show) => (
           <div
-            key={show._id}
+            key={show.id}
             className='w-55 rounded-lg overflow-hidden h-full pb-3 bg-primary/10 border border-primary/20 hover:-translate-y-1 transition duration-300'
           >
             <img
-              src={image_base_url + show.movie.poster_path}
+              src={image_base_url + show.movie.posterPath}
               alt=''
               className='h-60 w-full object-cover'
             />
@@ -113,7 +113,7 @@ const Dashboard = () => {
               </p>
               <p className='flex items-center gap-1 text-sm text-gray-400 mt-1 pr-1'>
                 <StarIcon className='w-4 h-4 text-primary fill-primary' />
-                {show.movie.vote_average.toFixed(1)}
+                {show.movie.voteAverage.toFixed(1)}
               </p>
             </div>
             <p className='px-2 pt-2 text-sm text-gray-500'>

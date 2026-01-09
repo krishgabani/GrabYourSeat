@@ -33,7 +33,7 @@ const HeroSection = () => {
     <div
       className='flex flex-col items-start justify-center gap-4 px-6 md:px-16 lg:px-36 bg-cover bg-center h-screen'
       style={{
-        backgroundImage: `url(${image_base_url + heroMovie.backdrop_path})`,
+        backgroundImage: `url(${image_base_url + heroMovie.backdropPath})`,
       }}
     >
       {/* Overlay */}
