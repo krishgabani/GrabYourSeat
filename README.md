@@ -96,6 +96,38 @@ node_modules/
 .env
 ```
 
+## 📦 Local Setup
+
+### 🗄️ Running Postgres Locally (Docker)
+```bash
+docker run --name local-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=grab_your_seat -p 5432:5432 -d postgres:15
+```
+Update server/.env:
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/grab_your_seat
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/grab_your_seat
+```
+Apply schema:
+```bash
+npx prisma migrate dev
+```
+
+### ⚙️ Running Inngest Locally (Background Jobs)
+```bash
+npm run inngest:dev
+```
+
+### 💳 Running Stripe Locally (Webhooks)
+Forward Stripe webhooks to your local server.
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/stripe
+```
+Copy the generated webhook secret and add it to server/.env:
+```bash
+STRIPE_WEBHOOK_SECRET=whsec_XXXX
+```
+
 ### 🔐 Where to Get API Keys
 
 - 🔗 [Clerk (Authentication)](https://dashboard.clerk.com)
