@@ -69,20 +69,13 @@ const releaseSeatsAndDeleteBooking = inngest.createFunction(
 
       // If payment is not made, release seats and delete booking
       if (!booking.isPaid) {
-        const show = await prisma.show.findUnique({
-          where: { id: booking.showId },
+
+        // Delete Reserved Seats
+        await prisma.seat.deleteMany({
+          where: { bookingId: booking.id }
         });
 
-        const updatedOccupiedSeats = { ...show.occupiedSeats };
-        booking.bookedSeats.forEach((seat) => {
-          delete updatedOccupiedSeats[seat];
-        });
-
-        await prisma.show.update({
-          where: { id: booking.showId },
-          data: { occupiedSeats: updatedOccupiedSeats },
-        });
-
+        // Delete Booking
         await prisma.booking.delete({ where: { id: booking.id } });
       }
     });
