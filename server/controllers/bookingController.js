@@ -2,20 +2,42 @@ import stripe from 'stripe';
 import prisma from '../configs/db.js';
 import { inngest } from '../inngest/index.js';
 import { clerkClient } from '@clerk/express';
+import redis from '../configs/redis.js';
 
 // Function to check availability of selected seats for a movie
 const checkSeatsAvailability = async (showId, selectedSeats) => {
   try {
-    const showData = await prisma.show.findUnique({
-      where: { id: showId },
+    const showIdInt = parseInt(showId);
+
+    // 1. Check Redis (Optimistic availability)
+    try {
+      const redisKeys = selectedSeats.map(seat => `seat:lock:${showIdInt}:${seat}`);
+      if (redisKeys.length > 0) {
+        // Check if ANY seat is already locked
+        const locks = await redis.mget(redisKeys);
+        if (locks.some(val => val !== null)) {
+          return false;
+        }
+      }
+    } catch (redisError) {
+      console.error('Redis check failed, falling back to DB:', redisError.message);
+      // Continue to DB check
+    }
+
+    // 2. Check Database (Source of Truth)
+    // "Available" means no record exists for this seat number in this show
+    const existingSeats = await prisma.seat.findMany({
+      where: {
+        showId: showIdInt,
+        seatNumber: { in: selectedSeats }
+      }
     });
-    if (!showData) return false;
 
-    const occupiedSeats = showData.occupiedSeats;
+    if (existingSeats.length > 0) {
+      return false;
+    }
 
-    const isAnySeatTaken = selectedSeats.some((seat) => occupiedSeats[seat]);
-
-    return !isAnySeatTaken;
+    return true;
   } catch (error) {
     console.error(error);
     return false;
@@ -28,30 +50,60 @@ export const createBooking = async (req, res) => {
     const { userId } = req.auth();
     const { showId, selectedSeats } = req.body;
     const { origin } = req.headers;
+    const showIdInt = parseInt(showId);
 
-    // Check if seat is available for the selected show
-    const isAvailable = await checkSeatsAvailability(showId, selectedSeats);
+    // 1. Acquire Redis Locks (Optimistic Locking)
+    const locks = [];
+    const lockDuration = 600; // 10 minutes
 
-    if (!isAvailable) {
-      return res.json({
-        success: false,
-        message: 'Selected Seats are not available.',
-      });
+    // We try to acquire locks. If Redis is down, we proceed to DB transaction directly.
+    try {
+      let acquiredAll = true;
+
+      for (const seat of selectedSeats) {
+        const key = `seat:lock:${showIdInt}:${seat}`;
+        // SETNX: Set if Not Exists
+        const result = await redis.set(key, userId, 'EX', lockDuration, 'NX');
+        if (result === 'OK') {
+          locks.push(key);
+        } else {
+          acquiredAll = false;
+          break;
+        }
+      }
+
+      if (!acquiredAll) {
+        // Rollback: Release locks acquired so far
+        if (locks.length > 0) {
+          await redis.del(locks);
+        }
+        return res.json({
+          success: false,
+          message: 'Selected seats are already locked by another user.',
+        });
+      }
+    } catch (redisError) {
+      console.error('Redis locking failed, proceeding with DB only:', redisError.message);
+      // Do not return, proceed to DB. (Locks will be empty)
     }
 
-    // Get the show details
+    // 2. Get the show details (Verify show exists)
     const showData = await prisma.show.findUnique({
-      where: { id: showId },
+      where: { id: showIdInt },
       include: { movie: true },
     });
 
-    // Ensure user exists in database (in case Clerk webhook hasn't synced yet)
+    if (!showData) {
+      if (locks.length > 0) try { await redis.del(locks); } catch (e) { }
+      return res.json({ success: false, message: 'Show not found.' });
+    }
+
+    // 3. Ensure user exists
     let existingUser = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!existingUser) {
-      // User doesn't exist yet, fetch from Clerk and create
       try {
         const clerkUser = await clerkClient.users.getUser(userId);
         existingUser = await prisma.user.create({
@@ -63,7 +115,8 @@ export const createBooking = async (req, res) => {
           },
         });
       } catch (error) {
-        console.error('Error fetching user from Clerk:', error);
+        console.error('Error fetching/creating user:', error);
+        await redis.del(locks);
         return res.json({
           success: false,
           message: 'Unable to verify user. Please try again.',
@@ -71,31 +124,44 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    // Create booking
-    const booking = await prisma.booking.create({
-      data: {
-        userId,
-        showId,
-        amount: showData.showPrice * selectedSeats.length,
-        bookedSeats: selectedSeats,
-      },
-    });
+    // 4. Create Booking and Reserved Seats in Transaction
+    let booking;
+    try {
+      booking = await prisma.$transaction(async (tx) => {
+        // Create Booking
+        const newBooking = await tx.booking.create({
+          data: {
+            userId,
+            showId: showIdInt,
+            amount: showData.showPrice * selectedSeats.length,
+            bookedSeats: selectedSeats, // Snapshot
+          },
+        });
 
-    // reserve the seats for this user
-    const updatedOccupiedSeats = { ...showData.occupiedSeats };
-    selectedSeats.forEach((seat) => {
-      updatedOccupiedSeats[seat] = userId;
-    });
+        // Create Seat records (RESERVED)
+        // This will fail if a seat is already taken (Unique Constraint)
+        const seatData = selectedSeats.map(seatNumber => ({
+          showId: showIdInt,
+          seatNumber,
+          bookingId: newBooking.id,
+          status: 'RESERVED'
+        }));
 
-    await prisma.show.update({
-      where: { id: showId },
-      data: { occupiedSeats: updatedOccupiedSeats },
-    });
+        await tx.seat.createMany({
+          data: seatData
+        });
 
-    // Stripe
+        return newBooking;
+      });
+    } catch (dbError) {
+      // If DB transaction fails (e.g. Unique constraint violation), release Redis locks
+      console.error('Booking Transaction Failed:', dbError);
+      await redis.del(locks);
+      return res.json({ success: false, message: 'One or more seats are already booked.' });
+    }
+
+    // 5. Stripe Session
     const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
-
-    // Create Line items fo stripe
     const line_items = [
       {
         price_data: {
@@ -109,7 +175,6 @@ export const createBooking = async (req, res) => {
       },
     ];
 
-    // Session
     const session = await stripeInstance.checkout.sessions.create({
       success_url: `${origin}/loading/my-bookings`,
       cancel_url: `${origin}/my-bookings`,
@@ -118,17 +183,17 @@ export const createBooking = async (req, res) => {
       metadata: {
         bookingId: booking.id.toString(),
       },
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // Expires in 30 minutes
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
       billing_address_collection: 'required',
     });
 
-    // store paymentlink in database to pay later, incase of failure
+    // Update payment link
     await prisma.booking.update({
       where: { id: booking.id },
       data: { paymentLink: session.url },
     });
 
-    // Run Inngest Scheduler Function to check payment status after 10 minutes
+    // 6. Schedule Payment Check (Inngest)
     await inngest.send({
       name: 'app/checkpayment',
       data: {
@@ -137,8 +202,11 @@ export const createBooking = async (req, res) => {
     });
 
     res.json({ success: true, url: session.url });
+
   } catch (error) {
     console.error(error);
+    // Cleanup if something unexpected happens at top level (unlikely given try/catch blocks)
+    // Note: We don't have access to 'locks' here if it failed before definition, but main logic is wrapped.
     res.json({ success: false, message: error.message });
   }
 };
@@ -147,12 +215,14 @@ export const createBooking = async (req, res) => {
 export const getOccupiedSeats = async (req, res) => {
   try {
     const { showId } = req.params;
+    const showIdInt = parseInt(showId);
 
-    const showData = await prisma.show.findUnique({
-      where: { id: parseInt(showId) },
+    const seats = await prisma.seat.findMany({
+      where: { showId: showIdInt },
+      select: { seatNumber: true }
     });
 
-    const occupiedSeats = Object.keys(showData.occupiedSeats);
+    const occupiedSeats = seats.map(s => s.seatNumber);
 
     res.json({ success: true, occupiedSeats });
   } catch (error) {

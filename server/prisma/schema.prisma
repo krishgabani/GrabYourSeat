@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -39,13 +39,14 @@ model Movie {
   @@map("movies")
 }
 
+
 model Show {
   id            Int      @id @default(autoincrement())
   movieId       String   @map("movie_id")
   movie         Movie    @relation(fields: [movieId], references: [id])
   showDateTime  DateTime @map("show_date_time")
   showPrice     Float    @map("show_price")
-  occupiedSeats Json     @default("{}") @map("occupied_seats") // Object with seat numbers as keys and user IDs as values
+  seats         Seat[]
   bookings      Booking[]
 
   @@index([movieId])
@@ -60,7 +61,8 @@ model Booking {
   showId      Int      @map("show_id")
   show        Show     @relation(fields: [showId], references: [id])
   amount      Float
-  bookedSeats Json     @map("booked_seats") // Array of seat numbers
+  bookedSeats Json     @map("booked_seats") // Array of seat numbers (Snapshot)
+  seats       Seat[]
   isPaid      Boolean  @default(false) @map("is_paid")
   paymentLink String?  @map("payment_link")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -69,4 +71,23 @@ model Booking {
   @@index([userId])
   @@index([showId])
   @@map("bookings")
+}
+
+enum SeatStatus {
+  RESERVED
+  BOOKED
+}
+
+model Seat {
+  id          Int        @id @default(autoincrement())
+  showId      Int        @map("show_id")
+  show        Show       @relation(fields: [showId], references: [id])
+  seatNumber  String     @map("seat_number")
+  bookingId   Int?       @map("booking_id")
+  booking     Booking?   @relation(fields: [bookingId], references: [id])
+  status      SeatStatus @default(RESERVED)
+
+  @@unique([showId, seatNumber])
+  @@index([showId])
+  @@map("seats")
 }

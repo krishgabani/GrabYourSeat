@@ -37,6 +37,12 @@ export const stripeWebhooks = async (req, res) => {
           },
         });
 
+        // Set seats to BOOKED
+        await prisma.seat.updateMany({
+          where: { bookingId: parseInt(bookingId) },
+          data: { status: 'BOOKED' }
+        });
+
         console.log('Booking marked as paid:', bookingId);
 
         // Send Confirmation Email

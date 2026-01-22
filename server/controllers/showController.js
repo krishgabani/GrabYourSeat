@@ -66,7 +66,7 @@ export const addShow = async (req, res) => {
           movieId: movieIdStr,
           showDateTime: new Date(dateTimeString),
           showPrice: showPrice,
-          occupiedSeats: {},
+          // occupiedSeats: {}, // Removed
         });
       });
     });
