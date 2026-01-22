@@ -11,8 +11,8 @@
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
     "inngest:dev": "npx inngest-cli@latest dev -u http://127.0.0.1:3000/api/inngest",
-    "build": "npx prisma migrate deploy && npx prisma generate",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "build": "npx prisma migrate deploy && npx prisma generate"
   },
   "keywords": [],
   "author": "",
