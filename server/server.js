@@ -13,7 +13,6 @@ import { stripeWebhooks } from './controllers/stripeWebhooks.js';
 
 const app = express();
 const port = 3000;
-
 // Test Database Connection
 await prisma.$connect();
 console.log('Database connected');
@@ -38,9 +37,12 @@ app.use('/api/booking', bookingRouter);
 app.use('/api/show', showRouter);
 app.use('/api/user', userRouter);
 
-app.listen(port, () =>
-  console.log(`Server listening at http://localhost:${port}`)
-);
+// Only listen in local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`Server listening locally at http://localhost:${port}`);
+  });
+}
 
 // export app for Vercel
 export default app;
