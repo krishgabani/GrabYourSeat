@@ -135,6 +135,7 @@ export const createBooking = async (req, res) => {
             showId: showIdInt,
             amount: showData.showPrice * selectedSeats.length,
             bookedSeats: selectedSeats, // Snapshot
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
           },
         });
 
