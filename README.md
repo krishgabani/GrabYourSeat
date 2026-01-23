@@ -33,6 +33,7 @@ root/
 ## ✅ Prerequisites
 
 - Postgres Database (e.g. Supabase)
+- Redis (Upstash)
 - Stripe Account
 - Clerk Project
 - Inngest Account
@@ -70,6 +71,7 @@ VITE_TMDB_IMAGE_BASE_URL = https://image.tmdb.org/t/p/original
 ```bash
 DATABASE_URL = transaction-pooler-URL (port 6543)
 DIRECT_URL = session-pooler-URL (port 5432) AND append ?pgbouncer=true
+REDIS_URL = upstash-redis-url
 
 CLERK_PUBLISHABLE_KEY = your-clerk-pub-key
 CLERK_SECRET_KEY = your-clerk-secret-key
@@ -110,6 +112,12 @@ DIRECT_URL=postgresql://postgres:postgres@localhost:5432/grab_your_seat
 Apply schema:
 ```bash
 npx prisma migrate dev
+```
+
+### 🗄️ Running Redis Locally (Docker)
+Update server/.env:
+```bash
+REDIS_URL = redis://127.0.0.1:7379
 ```
 
 ### ⚙️ Running Inngest Locally (Background Jobs)

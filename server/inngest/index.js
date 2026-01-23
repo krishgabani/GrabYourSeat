@@ -68,16 +68,39 @@ const releaseSeatsAndDeleteBooking = inngest.createFunction(
       });
 
       // If payment is not made, release seats and delete booking
-      if (!booking.isPaid) {
-
-        // Delete Reserved Seats
-        await prisma.seat.deleteMany({
-          where: { bookingId: booking.id }
+      // Transactional check for expiration
+      await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.findUnique({
+          where: { id: bookingId },
         });
 
-        // Delete Booking
-        await prisma.booking.delete({ where: { id: booking.id } });
-      }
+        if (!booking) return;
+
+        // Check 1: Status must be PENDING
+        if (booking.status !== 'PENDING') return;
+
+        // Check 2: Must be past expiration time
+        // If expiresAt is set, ensure we have passed that time
+        if (booking.expiresAt && new Date() < new Date(booking.expiresAt)) {
+          // Not expired yet? (Technically this job runs after 10 mins so this should be true, 
+          // but covering edge cases where job might run early)
+          return;
+        }
+
+        // Soft Expire
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: { 
+            status: 'EXPIRED', 
+            paymentLink: '' 
+          },          
+        });
+
+        // Release seats
+        await tx.seat.deleteMany({
+          where: { bookingId: bookingId },
+        });
+      });
     });
   }
 );

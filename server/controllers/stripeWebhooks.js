@@ -29,27 +29,65 @@ export const stripeWebhooks = async (req, res) => {
 
         console.log('Processing payment for booking:', bookingId);
 
-        await prisma.booking.update({
+        // 1. Fetch Booking to check status
+        const booking = await prisma.booking.findUnique({
           where: { id: parseInt(bookingId) },
-          data: {
-            isPaid: true,
-            paymentLink: '',
-          },
         });
 
-        // Set seats to BOOKED
-        await prisma.seat.updateMany({
-          where: { bookingId: parseInt(bookingId) },
-          data: { status: 'BOOKED' }
-        });
+        if (!booking) {
+          console.error(`Booking ${bookingId} not found!`);
+          break;
+        }
 
-        console.log('Booking marked as paid:', bookingId);
+        // 2. Check for Expiration (Race Condition: Job ran before payment arrived)
+        if (booking.status === 'EXPIRED') {
+          console.warn(`Booking ${bookingId} is EXPIRED. Initiating refund...`);
+          try {
+            if (session.payment_intent) {
+              await stripeInstance.refunds.create({
+                payment_intent: session.payment_intent,
+              });
+              console.log(`Refund initiated for booking ${bookingId}`);
+            } else {
+              console.error(`No payment_intent found for session ${session.id}, cannot refund automatically.`);
+            }
+          } catch (refundError) {
+            console.error('Refund failed:', refundError);
+          }
+          break; // Exit, do not mark as paid
+        }
 
-        // Send Confirmation Email
-        await inngest.send({
-          name: 'app/show.booked',
-          data: { bookingId },
-        });
+        // 3. Mark as PAID (Atomic Transaction)
+        // We only proceed if status is NOT EXPIRED (e.g. PENDING)
+        try {
+          await prisma.$transaction(async (tx) => {
+            // Update Booking
+            await tx.booking.update({
+              where: { id: parseInt(bookingId) },
+              data: {
+                status: 'PAID',
+                paymentLink: '',
+              },
+            });
+
+            // Update Seats to BOOKED
+            await tx.seat.updateMany({
+              where: { bookingId: parseInt(bookingId) },
+              data: { status: 'BOOKED' }
+            });
+          });
+
+          console.log('Booking marked as paid:', bookingId);
+
+          // Send Confirmation Email
+          await inngest.send({
+            name: 'app/show.booked',
+            data: { bookingId },
+          });
+
+        } catch (txError) {
+          console.error('Transaction failed for booking confirmation:', txError);
+        }
 
         break;
       }
