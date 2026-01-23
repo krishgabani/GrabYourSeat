@@ -6,7 +6,10 @@ export const getUserBookings = async (req, res) => {
   try {
     const userId = req.auth().userId;
     const bookings = await prisma.booking.findMany({
-      where: { userId },
+      where: { 
+        userId, 
+        status: "PAID" 
+      },
       include: {
         show: {
           include: {
