@@ -65,7 +65,6 @@ export const stripeWebhooks = async (req, res) => {
             await tx.booking.update({
               where: { id: parseInt(bookingId) },
               data: {
-                isPaid: true,
                 status: 'PAID',
                 paymentLink: '',
               },

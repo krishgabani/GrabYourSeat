@@ -9,7 +9,7 @@ export const isAdmin = async (req, res) => {
 export const getDashboardData = async (req, res) => {
   try {
     const bookings = await prisma.booking.findMany({
-      where: { isPaid: true },
+      where: { status: 'PAID' },
     });
     const activeShows = await prisma.show.findMany({
       where: { showDateTime: { gte: new Date() } },
@@ -40,7 +40,7 @@ export const getAllShows = async (req, res) => {
       include: {
         movie: true,
         bookings: {
-          where: { isPaid: true },
+          where: { status: 'PAID' },
         },
       },
       orderBy: { showDateTime: 'asc' },
@@ -78,7 +78,7 @@ export const getAllShows = async (req, res) => {
 export const getAllbookings = async (req, res) => {
   try {
     const bookings = await prisma.booking.findMany({
-      where: { isPaid: true },
+      where: { status: 'PAID' },
       include: {
         user: true,
         show: {

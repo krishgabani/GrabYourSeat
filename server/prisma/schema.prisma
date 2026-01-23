@@ -64,7 +64,6 @@ model Booking {
   bookedSeats Json     @map("booked_seats") // Array of seat numbers (Snapshot)
   seats       Seat[]
 
-  isPaid      Boolean       @default(false) @map("is_paid")
   status      BookingStatus @default(PENDING)
   
   paymentLink String?  @map("payment_link")
