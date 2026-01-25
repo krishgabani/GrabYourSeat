@@ -46,6 +46,8 @@ model Show {
   movie         Movie    @relation(fields: [movieId], references: [id])
   showDateTime  DateTime @map("show_date_time")
   showPrice     Float    @map("show_price")
+  rows          Int      @default(10)              // Number of rows (A, B, C...)
+  seatsPerRow   Int      @default(9) @map("seats_per_row")  // Seats per row
   seats         Seat[]
   bookings      Booking[]
 

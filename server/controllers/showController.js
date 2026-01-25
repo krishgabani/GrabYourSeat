@@ -17,7 +17,7 @@ export const getNowPlayingMovies = async (req, res) => {
 // API to add a new show to the database
 export const addShow = async (req, res) => {
   try {
-    const { movieId, showsInput, showPrice } = req.body;
+    const { movieId, showsInput, showPrice, rows = 10, seatsPerRow = 9 } = req.body;
 
     // Convert movieId to string to match Prisma schema
     const movieIdStr = String(movieId);
@@ -66,7 +66,8 @@ export const addShow = async (req, res) => {
           movieId: movieIdStr,
           showDateTime: new Date(dateTimeString),
           showPrice: showPrice,
-          // occupiedSeats: {}, // Removed
+          rows: rows,
+          seatsPerRow: seatsPerRow,
         });
       });
     });
@@ -126,7 +127,12 @@ export const getShow = async (req, res) => {
       if (!dateTime[date]) {
         dateTime[date] = [];
       }
-      dateTime[date].push({ time: show.showDateTime, showId: show.id });
+      dateTime[date].push({
+        time: show.showDateTime,
+        showId: show.id,
+        rows: show.rows,
+        seatsPerRow: show.seatsPerRow,
+      });
     });
 
     res.json({ success: true, movie, dateTime });

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "shows" ADD COLUMN     "rows" INTEGER NOT NULL DEFAULT 10,
+ADD COLUMN     "seats_per_row" INTEGER NOT NULL DEFAULT 9;
