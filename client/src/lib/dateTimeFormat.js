@@ -21,3 +21,11 @@ export const dateFormat = (date) => {
     minute: 'numeric',
   });
 };
+
+export const time24To12 = (time) => {
+  let [h, m] = time.split(':');
+  h = Number(h);
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${period}`;
+};

@@ -98,6 +98,17 @@ export const createBooking = async (req, res) => {
       return res.json({ success: false, message: 'Show not found.' });
     }
 
+    // Validate seats against show layout
+    const validRows = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.slice(0, showData.rows);
+    for (const seat of selectedSeats) {
+      const row = seat.charAt(0).toUpperCase();
+      const num = parseInt(seat.slice(1));
+      if (!validRows.includes(row) || isNaN(num) || num < 1 || num > showData.seatsPerRow) {
+        if (locks.length > 0) try { await redis.del(locks); } catch (e) { }
+        return res.json({ success: false, message: `Invalid seat: ${seat}` });
+      }
+    }
+
     // 3. Ensure user exists
     let existingUser = await prisma.user.findUnique({
       where: { id: userId },

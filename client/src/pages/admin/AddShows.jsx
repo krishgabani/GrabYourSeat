@@ -5,6 +5,7 @@ import { kConverter } from '../../lib/kConverter';
 import Title from '../../components/admin/Title';
 import Loading from '../../components/Loading';
 import { useAppContext } from '../../context/AppContext';
+import { time24To12 } from '../../lib/dateTimeFormat';
 
 const AddShows = () => {
   const currency = import.meta.env.VITE_CURRENCY;
@@ -16,6 +17,8 @@ const AddShows = () => {
   const [dateTimeSelection, setDateTimeSelection] = useState({});
   const [dateTimeInput, setDateTimeInput] = useState('');
   const [showPrice, setShowPrice] = useState('');
+  const [rows, setRows] = useState(10);
+  const [seatsPerRow, setSeatsPerRow] = useState(9);
   const [addingShow, setAddingShow] = useState(false);
 
   const fetchNowPlayingMovies = async () => {
@@ -27,8 +30,7 @@ const AddShows = () => {
         setNowPlayingMovies(data.movies);
       }
     } catch (error) {
-      console.log('Error while fetching movies:', error);
-      toast.error('Failed to load now playing movies. Please try again.');
+      toast.error('Failed to load now playing movies');
     }
   };
 
@@ -75,11 +77,12 @@ const AddShows = () => {
       const showsInput = Object.entries(dateTimeSelection).map(
         ([date, time]) => ({ date, time })
       );
-
       const payload = {
         movieId: selectedMovie,
         showsInput,
         showPrice: Number(showPrice),
+        rows: Number(rows),
+        seatsPerRow: Number(seatsPerRow),
       };
 
       const { data } = await axios.post('/api/show/add', payload, {
@@ -91,6 +94,8 @@ const AddShows = () => {
         setSelectedMovie(null);
         setDateTimeSelection({});
         setShowPrice('');
+        setRows(10);
+        setSeatsPerRow(9);
       } else {
         toast.error(data.message);
       }
@@ -147,81 +152,162 @@ const AddShows = () => {
         </div>
       </div>
 
-      {/* Show Price */}
-      <div className='mt-8'>
-        <label className='block text-sm font-medium mb-2'>Show Price</label>
-        <div className='inline-flex items-center gap-2 border border-gray-600 px-3 py-2 rounded-md'>
-          <p className='text-gray-400 text-sm'>{currency}</p>
-          <input
-            min={0}
-            type='number'
-            value={showPrice}
-            onChange={(e) => setShowPrice(e.target.value)}
-            placeholder='Enter show price'
-            className='outline-none'
-          />
-        </div>
-      </div>
+      {/* TWO COLUMN LAYOUT */}
+      <div className='mt-10 grid grid-cols-1 lg:grid-cols-3 gap-8'>
 
-      {/* Date & Time Selection */}
+        {/* LEFT PANEL */}
+        <div className='lg:col-span-1 space-y-6'>
 
-      <div className='mt-6'>
-        <label className='block text-sm font-medium mb-2'>
-          Select Date and Time
-        </label>
-        <div className='inline-flex gap-5 border border-gray-600 p-1 pl-3 rounded-lg'>
-          <input
-            type='datetime-local'
-            value={dateTimeInput}
-            onChange={(e) => setDateTimeInput(e.target.value)}
-            className='outline-none rounded-md'
-          />
+          {/* Show Price */}
+          <div className='bg-white/5 border border-white/10 rounded-xl p-5'>
+            <label className='block text-sm font-medium mb-2'>Show Price</label>
+            <div className='flex items-center gap-3 border border-primary/30 bg-primary/5 px-4 py-3 rounded-lg'>
+              <p className='text-gray-400 text-sm'>{currency}</p>
+              <input
+                min={0}
+                type='number'
+                value={showPrice}
+                onChange={(e) => setShowPrice(e.target.value)}
+                placeholder='Enter show price'
+                className='bg-transparent outline-none w-full'
+              />
+            </div>
+          </div>
+
+          {/* Date & Time Selection */}
+          <div className='bg-white/5 border border-white/10 rounded-xl p-5'>
+            <label className='block text-sm font-medium mb-3'>
+              Select Date & Time
+            </label>
+            <div className='flex gap-3'>
+              <input
+                type='datetime-local'
+                value={dateTimeInput}
+                onChange={(e) => setDateTimeInput(e.target.value)}
+                className='bg-black/30 rounded-lg px-3 py-2 w-full'
+              />
+              <button
+                onClick={handleDateTimeAdd}
+                className='bg-primary/80 text-white px-4 rounded-lg hover:bg-primary'
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Display Selected Time */}
+
+            {Object.keys(dateTimeSelection).length > 0 && (
+              <div className='mt-6'>
+                <ul className='space-y-3'>
+                  {Object.entries(dateTimeSelection).map(([date, times]) => (
+                    <li key={date}>
+                      <div className='font-medium'>{date}</div>
+                      <div className='flex flex-wrap gap-2 mt-1 text-sm'>
+                        {times.map((time) => (
+                          <div
+                            key={time}
+                            className='border border-primary px-2 py-1 flex items-center rounded'
+                          >
+                            <span>{time24To12(time)}</span>
+                            <DeleteIcon
+                              onClick={() => handleRemoveTime(date, time)}
+                              width={15}
+                              className='ml-2 text-red-500 hover:text-red-700 cursor-pointer'
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Add Show Button */}
           <button
-            onClick={handleDateTimeAdd}
-            className='bg-primary/80 text-white px-3 py-2 text-sm rounded-lg hover:bg-primary cursor-pointer'
+            onClick={handleSubmit}
+            disabled={addingShow}
+            className='w-full py-3 bg-primary text-white rounded-xl shadow-lg hover:bg-primary/90 cursor-pointer'
           >
-            Add Time
+            Add Show
           </button>
         </div>
-      </div>
 
-      {/* Display Selected Time */}
+        {/* RIGHT PANEL - SEAT BUILDER */}
+        <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-xl p-6'>
+          <h3 className='text-sm font-medium mb-4'>Seat Layout</h3>
 
-      {Object.keys(dateTimeSelection).length > 0 && (
-        <div className='mt-6'>
-          <h2 className=' mb-2'>Selected Date-Time</h2>
-          <ul className='space-y-3'>
-            {Object.entries(dateTimeSelection).map(([date, times]) => (
-              <li key={date}>
-                <div className='font-medium'>{date}</div>
-                <div className='flex flex-wrap gap-2 mt-1 text-sm'>
-                  {times.map((time) => (
+          {/* Sliders */}
+          <div className='grid md:grid-cols-2 gap-6'>
+            <div>
+              <div className='flex justify-between mb-2'>
+                <label className='text-sm text-gray-400'>Rows (Front to Back)</label>
+                <span className='text-primary font-semibold'>{rows}</span>
+              </div>
+              <input
+                type='range'
+                min={1}
+                max={20}
+                value={rows}
+                onChange={(e) => setRows(parseInt(e.target.value))}
+                className='w-full accent-primary'
+              />
+            </div>
+
+            <div>
+              <div className='flex justify-between mb-2'>
+                <label className='text-sm text-gray-400'>Seats per Row</label>
+                <span className='text-primary font-semibold'>{seatsPerRow}</span>
+              </div>
+              <input
+                type='range'
+                min={1}
+                max={20}
+                value={seatsPerRow}
+                onChange={(e) => setSeatsPerRow(parseInt(e.target.value))}
+                className='w-full accent-primary'
+              />
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className='grid grid-cols-2 gap-4 mt-6'>
+            <div className='bg-black/30 rounded-lg p-4 text-center'>
+              <p className='text-xs text-gray-500'>Total Seats</p>
+              <p className='text-2xl font-bold'>{rows * seatsPerRow}</p>
+            </div>
+            <div className='bg-black/30 rounded-lg p-4 text-center'>
+              <p className='text-xs text-gray-500'>Layout</p>
+              <p className='text-2xl font-bold'>{rows} × {seatsPerRow}</p>
+            </div>
+          </div>
+
+          {/* Live Preview */}
+          <div className='mt-6'>
+            <p className='text-center text-sm text-gray-400 mb-4'>Live Preview</p>
+            <div className='flex flex-col items-center mb-4'>
+              <div className='w-56 h-2 bg-gradient-to-r from-transparent via-primary/60 to-transparent rounded-full' />
+              <p className='text-xs text-gray-500 mt-1'>SCREEN</p>
+            </div>
+
+            <div className='flex flex-col items-center gap-2 overflow-x-auto'>
+              {Array.from({ length: rows }, (_, rowIdx) => (
+                <div key={rowIdx} className='flex gap-1.5'>
+                  {Array.from({ length: seatsPerRow }, (_, seatIdx) => (
                     <div
-                      key={time}
-                      className='border border-primary px-2 py-1 flex items-center rounded'
+                      key={seatIdx}
+                      className='w-6 h-6 rounded-t-md border border-primary/40 bg-primary/20 text-[9px] flex items-center justify-center'
                     >
-                      <span>{time}</span>
-                      <DeleteIcon
-                        onClick={() => handleRemoveTime(date, time)}
-                        width={15}
-                        className='ml-2 text-red-500 hover:text-red-700 cursor-pointer'
-                      />
+                      {seatIdx + 1}
                     </div>
                   ))}
                 </div>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+          </div>
         </div>
-      )}
-
-      <button
-        onClick={handleSubmit}
-        disabled={addingShow}
-        className='bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer'
-      >
-        Add Show
-      </button>
+      </div>
     </>
   ) : (
     <Loading />

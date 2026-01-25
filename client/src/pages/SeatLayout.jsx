@@ -9,14 +9,6 @@ import BlurCircle from '../components/BlurCircle';
 import { useAppContext } from '../context/AppContext';
 
 const SeatLayout = () => {
-  const groupRows = [
-    ['A', 'B'],
-    ['C', 'D'],
-    ['E', 'F'],
-    ['G', 'H'],
-    ['I', 'J'],
-  ];
-
   const navigate = useNavigate();
 
   const { axios, getToken, user } = useAppContext();
@@ -55,18 +47,20 @@ const SeatLayout = () => {
     );
   };
 
-  const renderSeats = (row, count = 9) => (
+  // Dynamic seat count from selected time (fallback to 9 for backward compat)
+  const seatsPerRow = selectedTime?.seatsPerRow || 9;
+
+  const renderSeats = (row) => (
     <div key={row} className='flex gap-2 mt-2'>
       <div className='flex flex-wrap items-center justify-center gap-2'>
-        {Array.from({ length: count }, (_, i) => {
+        {Array.from({ length: seatsPerRow }, (_, i) => {
           const seatId = `${row}${i + 1}`;
           return (
             <button
               key={seatId}
               onClick={() => handleSeatClick(seatId)}
-              className={`h-8 w-8 rounded border border-primary/60 cursor-pointer ${
-                selectedSeats.includes(seatId) && 'bg-primary text-white'
-              } ${occupiedSeats.includes(seatId) && 'opacity-50'}`}
+              className={`h-8 w-8 rounded border border-primary/60 cursor-pointer ${selectedSeats.includes(seatId) && 'bg-primary text-white'
+                } ${occupiedSeats.includes(seatId) && 'opacity-50'}`}
             >
               {seatId}
             </button>
@@ -137,11 +131,10 @@ const SeatLayout = () => {
             <div
               key={item.time}
               onClick={() => setSelectedTime(item)}
-              className={`flex items-center gap-2 px-6 py-2 w-max rounded-r-md cursor-pointer transition ${
-                selectedTime?.time === item.time
-                  ? 'bg-primary text-white'
-                  : 'hover:bg-primary/20'
-              }`}
+              className={`flex items-center gap-2 px-6 py-2 w-max rounded-r-md cursor-pointer transition ${selectedTime?.time === item.time
+                ? 'bg-primary text-white'
+                : 'hover:bg-primary/20'
+                }`}
             >
               <ClockIcon className='w-4 h-4' />
               <p className='text-sm'>{isoTimeFormat(item.time)}</p>
@@ -152,22 +145,86 @@ const SeatLayout = () => {
       <div className='relative flex-1 flex flex-col items-center max-md:mt-16'>
         <BlurCircle top='-100px' left='-100px' />
         <BlurCircle bottom='0' right='0' />
-        <h1 className='text-2x1 font-semibold mb-4'>Select your seat</h1>
-        <img src={assets.screenImage} alt='screen' />
-        <p className='text-gray-400 text-sm mb-6'>SCREEN SIDE</p>
-        <div className='flex flex-col items-center mt-10 text-xs text-gray-300'>
-          <div className='grid grid-cols-2 md:grid-cols-1 gap-8 md:gap-2 mb-6'>
-            {groupRows[0].map((row) => renderSeats(row))}
+        <h1 className='text-xl font-semibold mb-6'>Select your seats</h1>
+
+        {/* Screen Indicator */}
+        <div className='flex flex-col items-center mb-8'>
+          <div className='w-64 md:w-80 h-2 bg-gradient-to-r from-transparent via-primary/70 to-transparent rounded-full' />
+          <p className='text-gray-500 text-xs mt-2 tracking-widest'>SCREEN</p>
+        </div>
+
+        {/* Seat Grid */}
+        <div className='flex flex-col gap-2 items-center'>
+          {(() => {
+            const numRows = selectedTime?.rows || 10;
+            const rowLabels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.slice(0, numRows).split('');
+
+            return rowLabels.map((row) => (
+              <div key={row} className='flex gap-2 items-center'>
+                <span className='w-6 text-xs text-gray-500 text-right font-medium'>
+                  {row}
+                </span>
+                <div className='flex gap-1.5'>
+                  {Array.from({ length: seatsPerRow }, (_, i) => {
+                    const seatId = `${row}${i + 1}`;
+                    const isSelected = selectedSeats.includes(seatId);
+                    const isOccupied = occupiedSeats.includes(seatId);
+
+                    return (
+                      <button
+                        key={seatId}
+                        onClick={() => handleSeatClick(seatId)}
+                        disabled={isOccupied}
+                        className={`w-8 h-8 rounded-t-lg border text-xs font-medium transition-all cursor-pointer
+                          ${isSelected
+                            ? 'bg-primary border-primary text-white scale-105'
+                            : isOccupied
+                              ? 'bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed opacity-50'
+                              : 'bg-primary/10 border-primary/40 text-gray-400 hover:bg-primary/30 hover:border-primary/60'
+                          }`}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className='w-6 text-xs text-gray-500 text-left font-medium'>
+                  {row}
+                </span>
+              </div>
+            ));
+          })()}
+        </div>
+
+        {/* Legend */}
+        <div className='flex gap-6 mt-8 text-xs'>
+          <div className='flex items-center gap-2'>
+            <div className='w-5 h-5 rounded-t-lg bg-primary/10 border border-primary/40' />
+            <span className='text-gray-400'>Available</span>
           </div>
-          <div className='grid grid-cols-2 gap-11'>
-            {groupRows.slice(1).map((group, idx) => (
-              <div key={idx}>{group.map((row) => renderSeats(row))}</div>
-            ))}
+          <div className='flex items-center gap-2'>
+            <div className='w-5 h-5 rounded-t-lg bg-primary border border-primary' />
+            <span className='text-gray-400'>Selected</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <div className='w-5 h-5 rounded-t-lg bg-gray-700 border border-gray-600 opacity-50' />
+            <span className='text-gray-400'>Booked</span>
           </div>
         </div>
+
+        {/* Selected Seats Summary */}
+        {selectedSeats.length > 0 && (
+          <div className='mt-6 px-4 py-3 bg-primary/10 border border-primary/30 rounded-lg'>
+            <p className='text-sm text-gray-300'>
+              <span className='text-primary font-semibold'>{selectedSeats.length}</span> seat(s) selected:
+              <span className='text-white font-medium ml-1'>{selectedSeats.join(', ')}</span>
+            </p>
+          </div>
+        )}
+
         <button
           onClick={bookTickets}
-          className='flex items-center gap-1 mt-20 px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer active:scale-95'
+          className='flex items-center gap-2 mt-10 px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer active:scale-95'
         >
           Proceed to Checkout
           <ArrowRightIcon strokeWidth={3} className='w-4 h-4' />
