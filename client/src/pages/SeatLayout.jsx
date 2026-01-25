@@ -118,6 +118,7 @@ const SeatLayout = () => {
 
   useEffect(() => {
     if (selectedTime) {
+      setSelectedSeats([]);
       getOccupiedSeats();
     }
   }, [selectedTime]);
