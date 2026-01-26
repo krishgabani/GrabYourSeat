@@ -5,7 +5,7 @@ import { kConverter } from '../../lib/kConverter';
 import Title from '../../components/admin/Title';
 import Loading from '../../components/Loading';
 import { useAppContext } from '../../context/AppContext';
-import { time24To12 } from '../../lib/dateTimeFormat';
+import { time24To12, parseISTToUTC } from '../../lib/dateTimeFormat';
 
 const AddShows = () => {
   const currency = import.meta.env.VITE_CURRENCY;
@@ -77,15 +77,11 @@ const AddShows = () => {
       const showsInput = Object.entries(dateTimeSelection).flatMap(
         ([date, times]) =>
           times.map((time) => {
-            const [year, month, day] = date.split('-').map(Number);
-            const [hour, minute] = time.split(':').map(Number);
-
-            // Construct Date object in local timezone
-            const showDateTime = new Date(year, month - 1, day, hour, minute);
-
+            const showDateTime = parseISTToUTC(date, time);
             return { showDateTime };
           })
       );
+
       
       const payload = {
         movieId: selectedMovie,
