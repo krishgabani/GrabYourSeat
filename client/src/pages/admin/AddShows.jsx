@@ -74,9 +74,19 @@ const AddShows = () => {
         return toast('Missing required fields');
       }
 
-      const showsInput = Object.entries(dateTimeSelection).map(
-        ([date, time]) => ({ date, time })
+      const showsInput = Object.entries(dateTimeSelection).flatMap(
+        ([date, times]) =>
+          times.map((time) => {
+            const [year, month, day] = date.split('-').map(Number);
+            const [hour, minute] = time.split(':').map(Number);
+
+            // Construct Date object in local timezone
+            const showDateTime = new Date(year, month - 1, day, hour, minute);
+
+            return { showDateTime };
+          })
       );
+      
       const payload = {
         movieId: selectedMovie,
         showsInput,
