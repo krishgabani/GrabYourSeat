@@ -22,6 +22,32 @@ export const addShow = async (req, res) => {
     // Convert movieId to string to match Prisma schema
     const movieIdStr = String(movieId);
 
+    // Check for duplicate shows
+    const proposedDates = [];
+    showsInput.forEach((show) => {
+      const showDate = show.date;
+      show.time.forEach((time) => {
+        const dateTimeString = `${showDate}T${time}`;
+        proposedDates.push(new Date(dateTimeString));
+      });
+    });
+
+    const existingShow = await prisma.show.findFirst({
+      where: {
+        movieId: movieIdStr,
+        showDateTime: {
+          in: proposedDates,
+        },
+      },
+    });
+
+    if (existingShow) {
+      return res.json({
+        success: false,
+        message: `Show already exists for this movie at ${existingShow.showDateTime.toLocaleString()}`,
+      });
+    }
+
     let movie = await prisma.movie.findUnique({
       where: { id: movieIdStr },
     });
