@@ -83,6 +83,14 @@ const AddShows = () => {
         showPrice: Number(showPrice),
         rows: Number(rows),
         seatsPerRow: Number(seatsPerRow),
+        timezoneOffset: (() => {
+          const offset = new Date().getTimezoneOffset();
+          const sign = offset <= 0 ? '+' : '-';
+          const absOffset = Math.abs(offset);
+          const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+          const minutes = String(absOffset % 60).padStart(2, '0');
+          return `${sign}${hours}:${minutes}`;
+        })(),
       };
 
       const { data } = await axios.post('/api/show/add', payload, {
@@ -184,11 +192,11 @@ const AddShows = () => {
                 type='datetime-local'
                 value={dateTimeInput}
                 onChange={(e) => setDateTimeInput(e.target.value)}
-                className='bg-black/30 rounded-lg px-3 py-2 w-full'
+                className='bg-black/30 rounded-lg px-3 py-2 w-full cursor-pointer'
               />
               <button
                 onClick={handleDateTimeAdd}
-                className='bg-primary/80 text-white px-4 rounded-lg hover:bg-primary'
+                className='bg-primary/80 text-white px-4 rounded-lg hover:bg-primary cursor-pointer'
               >
                 Add
               </button>
@@ -251,7 +259,7 @@ const AddShows = () => {
                 max={20}
                 value={rows}
                 onChange={(e) => setRows(parseInt(e.target.value))}
-                className='w-full accent-primary'
+                className='w-full accent-primary cursor-pointer'
               />
             </div>
 
@@ -266,7 +274,7 @@ const AddShows = () => {
                 max={20}
                 value={seatsPerRow}
                 onChange={(e) => setSeatsPerRow(parseInt(e.target.value))}
-                className='w-full accent-primary'
+                className='w-full accent-primary cursor-pointer'
               />
             </div>
           </div>
