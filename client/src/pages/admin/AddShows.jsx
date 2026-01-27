@@ -5,7 +5,7 @@ import { kConverter } from '../../lib/kConverter';
 import Title from '../../components/admin/Title';
 import Loading from '../../components/Loading';
 import { useAppContext } from '../../context/AppContext';
-import { time24To12, parseISTToUTC } from '../../lib/dateTimeFormat';
+import { time24To12 } from '../../lib/dateTimeFormat';
 
 const AddShows = () => {
   const currency = import.meta.env.VITE_CURRENCY;
@@ -74,15 +74,9 @@ const AddShows = () => {
         return toast('Missing required fields');
       }
 
-      const showsInput = Object.entries(dateTimeSelection).flatMap(
-        ([date, times]) =>
-          times.map((time) => {
-            const showDateTime = parseISTToUTC(date, time);
-            return { showDateTime };
-          })
+      const showsInput = Object.entries(dateTimeSelection).map(
+        ([date, time]) => ({ date, time })
       );
-
-      
       const payload = {
         movieId: selectedMovie,
         showsInput,
